@@ -6,3 +6,5 @@ edition = "2024"
 [dependencies]
 clap = { version = "4.5.37", features = ["derive"] }
 colored = "3.0.0"
+directories = "6.0.0"
+rusqlite = "0.35.0"
