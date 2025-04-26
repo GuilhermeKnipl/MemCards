@@ -1,6 +1,10 @@
 pub mod commands;
 pub mod client;
-pub mod database;
+pub mod sql;
+pub mod misc;
 //pub mod utils;
+
+
+
 
 
