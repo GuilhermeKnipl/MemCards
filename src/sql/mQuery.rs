@@ -10,10 +10,20 @@ pub struct LastStatus{
     creation_date : String,
     word : String,
     pred_word: String,
-    _real_word: String,
+    real_word: String,
     last_search: String, 
     context: String
 }
+/*
+pub struct LastStatusSearch{
+    creation_date : String,
+    word : String,
+    pred_word: String,
+    real_word: String,
+    last_search: String, 
+    context: String
+}
+*/
 
 #[derive(Debug)]
 pub struct Records{
@@ -36,32 +46,43 @@ pub struct Review {
 
 
 pub fn word_exist(conn: &Connection, word: &str)-> bool{
-    
-    match get_creation_date(conn, word){
-       Ok(_) => true,
-       Err(_) => false
-    }
 
+    let mut query = conn.prepare("SELECT word FROM last_status WHERE LOWER(word) like LOWER(?) LIMIT 1").unwrap();
+    let exist = query.exists(params![format!("{}", word)]).unwrap_or(false);
+    return exist
+      
+}
+
+pub fn wordlike_exist(conn: &Connection, word: &str) -> Result<bool>{
+
+     let mut query = conn.prepare("SELECT word FROM last_status WHERE LOWER(word) like LOWER(?) LIMIT 1")?;
+     let exist = query.exists(params![format!("%{}%", word)])?;
+
+     Ok(exist)
 }
 
 
 pub fn add_word(conn: &Connection, word: &str, pred_word: &str, context: &str){
     let now_dt = now_datetime();
-    let creation_date: String;    
     let last_search = now_dt.clone();
 
     if word_exist(&conn, word){
-        creation_date = get_creation_date(conn, word).unwrap();
+        let ls_update_query = "UPDATE last_status SET pred_word = ?1, last_search= ?2, context = ?3
+        WHERE word = ?4";
+        conn.execute(ls_update_query, params![pred_word, last_search, context, word]).unwrap();
     }
+
     else {
-        creation_date  = now_dt.clone();
+        let last_status_query = "INSERT INTO last_status(creation_date, word, pred_word, last_search, context) 
+        VALUES(?1, ?2, ?3, ?4, ?5)";
+        conn.execute(last_status_query, params![now_dt, word, pred_word, last_search, context]).unwrap();
+
     }
 
     let records_query = "INSERT INTO records(search_date, word, pred_word) VALUES(?1, ?2, ?3)";
-    let last_status_query = "INSERT INTO last_status(creation_date, word, pred_word, last_search, context) 
-        VALUES(?1, ?2, ?3, ?4, ?5)";
 
-    conn.execute(last_status_query, params![creation_date, word, pred_word, last_search, context]).unwrap();
+
+
     conn.execute(records_query, params![last_search, word, pred_word]).unwrap();
     
 
@@ -86,7 +107,7 @@ pub fn get_creation_date(conn: &Connection, word: &str) -> Result<String,Box<dyn
 }
 
 
-pub fn get_records(conn: Connection, search_word: &str , sort_asc: bool) -> Result<Vec<Records>, Box<dyn Error>>{    
+pub fn get_records(conn: &Connection, search_word: &str , sort_asc: bool) -> Result<Vec<Records>, Box<dyn Error>>{    
    
     let sort;
 
@@ -120,6 +141,54 @@ pub fn get_records(conn: Connection, search_word: &str , sort_asc: bool) -> Resu
 
     Ok(records)
 }
+pub fn get_laststatus(conn: &Connection, search_word: &str , sort_asc: &bool, detail: bool) -> Result<Vec<LastStatus>, Box<dyn Error>>{    
+   
+    let sort;
+
+    if sort_asc.to_owned() {
+        sort = "ASC";
+    } else {
+        sort = "DESC";
+    }
+
+    let query = format!("SELECT word, pred_word, real_word ,strftime('%Y-%m-%d',creation_date), 
+        last_search, context FROM last_status 
+        WHERE LOWER(word) like LOWER(?1) ORDER BY creation_date {}", sort);
+
+    let mut select = conn.prepare(&query).unwrap();
+
+    let laststatus = select.query_map(params![format!("%{}%", search_word)], |row|{
+        Ok( LastStatus{
+            word: row.get(0)?,
+            pred_word: row.get(1)?,
+            real_word: row.get(2).unwrap_or("".to_string()),
+            creation_date: row.get(3)?,
+            last_search: row.get(4)?,
+            context: row.get(5)?
+        })
+        
+    })?
+    .collect::<Result<Vec<_>, _>>()?;
+
+    let word_column_width = 15;
+    let date_column_width = 7;
+    
+    for row in &laststatus{
+        print!("-> {:width$} ", row.word.trim().white().bold(), width = word_column_width);
+        println!("{:<width_date$}", row.creation_date.trim().bright_white(), width_date = date_column_width);
+        if detail{
+            println!(" - Predicted: {}", format!("{}", row.pred_word.trim().cyan()));
+            println!(" - Real Meaning: {}", format!("{}", row.real_word.trim().cyan()));
+            println!(" - Context: {}", format!("{}", row.context.trim().cyan()));
+        }
+    }
+
+
+    Ok(laststatus)
+}
+
+
+
 
 pub fn insert_in_last_status(conn: Connection,values: LastStatus){
     conn.execute(
