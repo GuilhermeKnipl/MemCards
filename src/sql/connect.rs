@@ -1,5 +1,5 @@
 //use colored::Colorize;
-use rusqlite::{Connection, Result};
+use rusqlite::Connection;
 use directories::ProjectDirs;
 use std::{fs::{self, File},path::PathBuf, process::exit};
 

@@ -1,2 +1,2 @@
-pub mod mConnect;
-pub mod mQuery;
+pub mod connect;
+pub mod query;
