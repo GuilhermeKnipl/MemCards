@@ -1,13 +1,13 @@
 use colored::Colorize;
 
-use crate::sql::{mConnect::establish_connection, mQuery::{get_laststatus, word_exist, wordlike_exist}};
+use crate::sql::{connect::establish_connection, query::{get_laststatus, wordlike_exist}};
 
 
 
 
 
 
-pub fn run(word: &str , sort_asc:&bool, limit: &u8, records: &bool, detail: &bool){
+pub fn run(word: &str , sort_asc:&bool, _limit: &u8, _records: &bool, detail: &bool){
     let conn = establish_connection();
 
 
