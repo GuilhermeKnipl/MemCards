@@ -2,28 +2,18 @@ use colored::Colorize;
 use rusqlite::{params, Connection, Result};
 use std::error::Error;
 
-use crate::misc::now_datetime;
+use crate::misc::{now_datetime, trim_newline};
 
 
 #[derive(Debug)]
 pub struct LastStatus{
-    creation_date : String,
-    word : String,
-    pred_word: String,
-    real_word: String,
-    last_search: String, 
-    context: String
+    pub creation_date : String,
+    pub word : String,
+    pub pred_word: String,
+    pub real_word: String,
+    pub last_search: String, 
+    pub context: String
 }
-/*
-pub struct LastStatusSearch{
-    creation_date : String,
-    word : String,
-    pred_word: String,
-    real_word: String,
-    last_search: String, 
-    context: String
-}
-*/
 
 #[derive(Debug)]
 pub struct Records{
@@ -45,6 +35,7 @@ pub struct Review {
 }
 
 
+
 pub fn word_exist(conn: &Connection, word: &str)-> bool{
 
     let mut query = conn.prepare("SELECT word FROM last_status WHERE LOWER(word) like LOWER(?) LIMIT 1").unwrap();
@@ -52,6 +43,16 @@ pub fn word_exist(conn: &Connection, word: &str)-> bool{
     return exist
       
 }
+
+pub fn real_word(conn: &Connection, word: &str) -> Result<bool>{
+
+     let mut query = conn.prepare("SELECT 1 FROM last_status WHERE LOWER(word) = LOWER(?) AND real_word IS NOT NULL LIMIT 1")?;
+     let exist = query.exists(params![word])?;
+
+     Ok(exist)
+}
+
+
 
 pub fn wordlike_exist(conn: &Connection, word: &str) -> Result<bool>{
 
@@ -67,7 +68,7 @@ pub fn add_word(conn: &Connection, word: &str, pred_word: &str, context: &str){
     let last_search = now_dt.clone();
 
     if word_exist(&conn, word){
-        let ls_update_query = "UPDATE last_status SET pred_word = ?1, last_search= ?2, context = ?3
+        let ls_update_query = "update last_status set pred_word = ?1, last_search= ?2, context = ?3
         WHERE word = ?4";
         conn.execute(ls_update_query, params![pred_word, last_search, context, word]).unwrap();
     }
@@ -83,15 +84,21 @@ pub fn add_word(conn: &Connection, word: &str, pred_word: &str, context: &str){
 
 
 
-    conn.execute(records_query, params![last_search, word, pred_word]).unwrap();
+    conn.execute(records_query, params![last_search, trim_newline(word), trim_newline(pred_word)]).unwrap();
     
 
 
     //word
     //pred_word
-    //context
+    //,context
     //last_search
 }
+
+pub fn insert_real_word(conn: &Connection, word: &str, real_word: &str){
+    let ls_update_query = "update last_status set real_word = ?1 WHERE word = ?2";
+    conn.execute(ls_update_query, params![real_word, word]).unwrap();
+}
+
 
 
 pub fn get_creation_date(conn: &Connection, word: &str) -> Result<String,Box<dyn std::error::Error>>{
@@ -172,10 +179,18 @@ pub fn get_laststatus(conn: &Connection, search_word: &str , sort_asc: &bool, de
 
     let word_column_width = 15;
     let date_column_width = 7;
-    
+   
+    println!("\n{}", "       ------ Word List ------\n".to_string().bold());
+
     for row in &laststatus{
-        print!("-> {:width$} ", row.word.trim().white().bold(), width = word_column_width);
-        println!("{:<width_date$}", row.creation_date.trim().bright_white(), width_date = date_column_width);
+        if real_word(&conn, &row.word).unwrap_or(false){
+            print!("-> {:width$} ", row.word.trim().green().bold(), width = word_column_width);
+            println!("{:<width_date$}", row.creation_date.green(),width_date = date_column_width);
+        }
+        else {
+            print!("-> {:width$} ", row.word.trim().white().bold(), width = word_column_width);
+            println!("{:<width_date$}", row.creation_date.trim().bright_white(), width_date = date_column_width);
+        }
         if detail{
             println!(" - Predicted: {}", format!("{}", row.pred_word.trim().cyan()));
             println!(" - Real Meaning: {}", format!("{}", row.real_word.trim().cyan()));
@@ -187,8 +202,19 @@ pub fn get_laststatus(conn: &Connection, search_word: &str , sort_asc: &bool, de
     Ok(laststatus)
 }
 
+pub fn get_last_status_total(conn: &Connection ) -> usize {
+    let query = "SELECT COUNT(*) FROM last_status";
 
+    conn.query_row(query,[], |row| row.get(0))
+        .unwrap_or(0) 
+}
 
+pub fn get_records_count(conn: &Connection, word: &str) -> usize {
+    let query = "SELECT COUNT(*) FROM records WHERE word = ?1";
+
+    conn.query_row(query, params![word], |row| row.get(0))
+        .unwrap_or(0)
+}
 
 pub fn insert_in_last_status(conn: Connection,values: LastStatus){
     conn.execute(
