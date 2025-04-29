@@ -10,3 +10,7 @@ pub fn now_date_file_fmt() -> String {
     let now_fmt = Local::now().format("%Y_%m_%d");
     return now_fmt.to_string();
 }
+
+pub fn trim_newline(word: &str) -> &str {
+    word.trim_matches('\n')
+}
