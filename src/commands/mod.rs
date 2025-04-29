@@ -1,4 +1,9 @@
 pub mod stats;
+pub mod change;
+pub mod remove;
+pub mod review;
+pub mod interpret;
 pub mod backup;
 pub mod search_word;
+pub mod add_real_word;
 pub mod add_word;
