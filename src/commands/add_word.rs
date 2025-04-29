@@ -1,5 +1,6 @@
 use std::io::{self, Write};
 use colored::*;
+use crate::misc::trim_newline;
 use crate::sql::connect::establish_connection;
 use crate::sql::query::{word_exist, add_word};
 //use crate::misc::now_datetime;
@@ -49,7 +50,7 @@ pub fn run(){
         println!("{}",format!("New word {} Added To Memory", &new_word.trim()).green().bold());
     }
 
-    add_word(&conn, &new_word, &pred_word, &context);
+    add_word(&conn, trim_newline(&new_word), trim_newline(&pred_word), trim_newline(&context));
 
     //get_records(&conn, &new_word, true).unwrap();
     
