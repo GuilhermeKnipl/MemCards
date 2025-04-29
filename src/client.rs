@@ -2,6 +2,7 @@ use std::u8;
 
 use clap::{Parser, Subcommand};
 use crate::commands;
+use crate::misc::trim_newline;
 
 #[derive(Parser)]
 #[command(name = "mem")]
@@ -35,13 +36,24 @@ pub enum Commands {
         #[arg(short = 'd', long = "detail" ,default_value_t = false, help= "Show Word Info")]
         detail: bool
     },
+    Define {
+        word: String
+    },
+    Remove {
+        word: String
+    },
+
 
     Backup {
         end_path: String
+    },
+
+    Review {
+         #[arg(short = 'l', long = "limit" ,default_value_t = 10, help = "Limit results")]
+        limit: u8,
     }
 
 }
-
 impl Cli {
     pub fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
         match &self.command {
@@ -52,10 +64,19 @@ impl Cli {
                 commands::add_word::run();
             }
             Commands::Search { word, sort_asc, limit, records, detail} => {
-                commands::search_word::run(word, sort_asc, limit, records, detail);
+                commands::search_word::run(trim_newline(word), sort_asc, limit, records, detail);
             }
             Commands::Backup { end_path } => {
                 commands::backup::run(end_path);
+            }
+            Commands::Define { word }=>{
+                commands::add_real_word::run(trim_newline(word));
+            }
+            Commands::Review { limit } => {
+                commands::review::run(limit);
+            }
+            Commands::Remove { word } => {
+                commands::remove::run(word);
             }
         }
         Ok(())
